@@ -131,7 +131,7 @@ def localServer():
             # Essa funcao e referente ao multi-cast (Que nao esta implementado ainda)
             if subscriber == Server_Socket:
 
-                Client_Socket, client_address = Server_Socket.accept()
+                Client_Socket = Server_Socket.accept()
                 message = receive_message_server(Client_Socket)
                 if message is False:
                     continue
@@ -139,7 +139,6 @@ def localServer():
                 sockets_list.append(Client_Socket)
                 Clients[Client_Socket] = message
 
-                # print('Accepted new connection from {}:{}, Process ID: {}'.format(*client_address, message['ProcID']))
 
             else:
 
@@ -152,11 +151,7 @@ def localServer():
                     del Clients[subscriber]
                     continue
 
-                processInfo = Clients[subscriber]
-
-                # print(f'\n\n{ProcID} -> Mensagem recebida de: {processInfo["ProcID"]}: {message}\n')
-
-                # Se a mensagem for do tipo de requisicao, executa fila de requisicoes
+                # Se a mensagem for do tipo de requisicao, executa fila de requisicoes como WANTED
                 if int(message["qualMsg"]) == REQUEST:
                     
                     count = 0
@@ -165,24 +160,22 @@ def localServer():
                             msg_header = f"{len(pickle.dumps(message)):<{HEADER_LENGTH}}".encode('utf-8')
                             Client_Socket.send(msg_header + pickle.dumps(message))
                             count += 1
-                    count_message={
+                    count_message = {
                         'qualMsg': SENT, 
                         'contaEnvio': count
                         }
                     count_msg_header = f"{len(pickle.dumps(count_message)):<{HEADER_LENGTH}}".encode('utf-8')
                     subscriber.send(count_msg_header + pickle.dumps(count_message))
 
-                # Se a mensagem for do tipo de resposta, executa fila de respostas
+                # Se a mensagem for do tipo de execucao, atualiza o status do cliente como executando HELD
                 if int(message["qualMsg"]) == EXEC:
-                    # print(f"Broadcasting Executing message from {message['veioDe']}")
                     for Client_Socket in Clients:
                         if Client_Socket != subscriber:
                             msg_header = f"{len(pickle.dumps(message)):<{HEADER_LENGTH}}".encode('utf-8')
                             Client_Socket.send(msg_header + pickle.dumps(message))
 
-                # Se a mensagem for do tipo de resposta, executa fila de respostas
+                # Se a mensagem for do tipo de resposta, executa fila de respostas, como RELEASED
                 if int(message["qualMsg"]) == REPLY:
-                    # print(f"Sending REPLY message to {message['foiPara']}")
                     for Client_Socket in Clients:
                         info = Clients[Client_Socket]
                         if info["ProcID"] == message["foiPara"]:
@@ -207,7 +200,7 @@ while True:
         Client_Socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         Client_Socket.connect((IP, PORT))
         Client_Socket.setblocking(False)
-        intro={
+        intro = {
             'ProcID': ProcID,
             'procTemp': ProcTime
             }
@@ -216,6 +209,8 @@ while True:
         ClientOn = True
     
     option = input(f'{ProcID} -> Digite 1 entrar na secao critica, Enter para atualizar: ')
+    
+    # Se a opcao for 1, gera uma mensagem contendo as informacoes do processo
     if option and int(option.strip()) == REQUEST and not Requested:
         print (f"{ProcID} -> Pedindo de acesso no tempo: {str(logicalClock())}")
         msg = {
